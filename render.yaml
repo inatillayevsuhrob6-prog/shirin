@@ -48,4 +48,4 @@ services:
 
 databases:
   - name: shirin-db
-    plan: free
+    plan: basic-256mb
