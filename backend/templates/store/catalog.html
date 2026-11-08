@@ -1,0 +1,6 @@
+{% extends 'store/base.html' %}
+{% load new_alphabet %}
+{% block content %}
+<section class="catalog-hero"><p class="eyebrow">ŞİRİN katalogi</p><h1>Har kayfiyatga<br><em>şirinlik</em></h1></section>
+<section class="section catalog-wrap"><aside class="filters"><button class="active" data-filter="all">Barçasi</button>{% for category in categories %}<button data-filter="{{ category.slug }}">{{ category.name|newlatin }}</button>{% endfor %}</aside><div class="product-grid catalog-grid">{% for product in products %}<article class="product-card" data-category="{{ product.category.slug }}" data-id="{{ product.id }}" data-name="{{ product.name|newlatin }}" data-price="{{ product.price }}"><div class="product-image"><img src="{{ product.display_image }}" alt="{{ product.name|newlatin }}"></div><div class="product-info"><p>{{ product.category.name|newlatin }}</p><h3>{{ product.name|newlatin }}</h3><p class="description">{{ product.description|newlatin }}</p><div class="product-meta"><strong>{{ product.price }} söm</strong><span>★ {{ product.rating }}</span></div><button class="add-cart">Savatga qöşish</button></div></article>{% endfor %}</div></section>
+{% endblock %}
