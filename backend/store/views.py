@@ -102,12 +102,13 @@ def notify_admins_order(order):
     delivery=new_uzbek_alphabet(order.delivery_time or 'Kelishiladi')
     telegram_id=order.telegram_id or (order.customer.telegram_id if order.customer else None)
     payment=f"💳 Karta — {int(order.total):,} so‘m" if order.payment=='card' else '💵 Naqd'
-    text=(f"🔔 YANGI BUYURTMA!\n\n"
-          f"👤 {customer_name}\n"
-          +(f"🆔 {telegram_id}\n" if telegram_id else "")+
+    text=(f"🔔 YANGI SAYT BUYURTMASI №{order.id}\n\n"
+          f"👤 Mijoz: {customer_name}\n"
+          +(f"🆔 Telegram: {telegram_id}\n" if telegram_id else "")+
+          f"📞 Telefon: {order.phone}\n"
           f"\n🛒 Buyurtma:\n"+'\n'.join(item_lines)+
           f"\n\n💰 Jami: {int(order.total):,} so‘m\n".replace(',', ' ')+
-          f"👤 Telefon: {order.phone}\n📍 Manzil: {address}\n🗺 Xarita: {map_link}\n"
+          f"📍 Manzil: {address}\n🗺 Xarita: {map_link}\n"
           f"💳 To‘lov: {payment}")
     if order.delivery_time:
         text+=f"\n🕒 Yetkazish: {delivery}"
