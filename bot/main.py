@@ -74,12 +74,12 @@ def order_details(order, username=None):
     if username:
         person+=f' (@{username}) 🇺🇿'
     payment=f'💳 Karta — {int(order.total):,} so‘m'.replace(',',' ') if order.payment=='card' else '💵 Naqd'
-    buyer=f'↗ (@{username}) 🇺🇿' if username else person
+    buyer=f'(@{username}) 🇺🇿' if username else person
     text=(f'🔔 YANGI BUYURTMA!\n\n'
-          f'{buyer}\n🆔 {order.telegram_id or "—"}\n\n'
+          f'👤 {buyer}\n🆔 {order.telegram_id or "—"}\n\n'
           f'🛒 Buyurtma:\n'+'\n'.join(lines)+
           f'\n\n💰 Jami: {int(order.total):,} so‘m'.replace(',',' ')+
-          f'\n📞 Telefon: {order.phone}\n📍 Manzil: {address}\n🗺 Xarita: {map_link}\n{payment}')
+          f'\n📞 Telefon: {order.phone}\n📍 Manzil: {address}\n🗺 Xarita: {map_link}\n💳 To‘lov: {payment}')
     if order.delivery_time:
         text+=f'\n🕒 Yetkazish: {new_uzbek_alphabet(order.delivery_time)}'
     if order.note:
@@ -427,19 +427,16 @@ async def receive_payment_receipt(message:Message,state:FSMContext):
     else:
         await message.answer('Iltimos, chekni rasm shaklida yuboring.')
         return
+    proof_text=new_uzbek_alphabet(order_details(order,message.from_user.username)+'\n\n🧾 Foydalanuvchi chek rasmi. To‘lovni tekshiring.')
+    keyboard=admin_order_keyboard(order.id,order.status)
     try:
         if media_kind=='photo':
-            await bot.send_photo(ADMIN_ID,uploaded_file_id,caption='🧾 Foydalanuvchi yuborgan chek rasmi')
+            await bot.send_photo(ADMIN_ID,uploaded_file_id,caption=proof_text,reply_markup=keyboard)
         else:
-            await bot.send_document(ADMIN_ID,uploaded_file_id,caption='🧾 Foydalanuvchi yuborgan chek rasmi')
+            await bot.send_document(ADMIN_ID,uploaded_file_id,caption=proof_text,reply_markup=keyboard)
     except Exception:
         await message.answer('Chek rasmi adminga yuborilmadi. Iltimos, qayta yuboring.')
         return
-    proof_text=new_uzbek_alphabet(order_details(order,message.from_user.username)+'\n\n🧾 Foydalanuvchi yuborgan chek rasmi. To‘lovni tekshiring.')
-    try:
-        await bot.send_message(ADMIN_ID,proof_text,reply_markup=admin_order_keyboard(order.id,order.status),disable_web_page_preview=True)
-    except Exception:
-        pass
     await state.clear()
     await message.answer('✅ Chekingiz adminga yuborildi. To‘lov tasdiqlanishini kuting.',reply_markup=main_menu())
 
