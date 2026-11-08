@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#2a1712">
   <title>{% block title %}ŞİRİN — Har bir tamda baxt bor{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/main.css?v=20261109-receipt1">
+  <link rel="stylesheet" href="/static/css/main.css?v=20261109-channel1">
 </head>
 <body>
   {% csrf_token %}
@@ -23,7 +23,8 @@
   <main>{% block content %}{% endblock %}</main>
   <footer>
     <div><a class="brand footer-brand" href="/"><span>Ş</span><div>ŞİRİN<small>Har bir tamda baxt bor!</small></div></a></div>
-    <div><p>+998 99 333 6815</p><p>Qarşi, Özbekiston</p><a href="https://t.me/ShirinDessert_bot">Telegram @ShirinDessert_bot</a><a href="https://t.me/shirinlik_00manshu">Telegram kanal: @shirinlik_00manshu</a></div>
+    <div class="footer-channel"><a href="https://t.me/shirinlik_00" target="_blank" rel="noopener"><span>▻</span><strong>ŞİRİN Telegram kanali</strong><small>@shirinlik_00</small></a></div>
+    <div><p>+998 99 333 6815</p><p>Qarşi, Özbekiston</p><a href="https://t.me/ShirinDessert_bot">Telegram @ShirinDessert_bot</a></div>
   </footer>
   <aside class="cart-drawer" id="cartDrawer">
     <header><h2>🛒 Savat</h2><button id="cartClose" aria-label="Savatni yopiş">×</button></header>
@@ -52,6 +53,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   {{ cart_products|json_script:"cart-products-data" }}
-  <script src="/static/js/main.js?v=20261109-receipt1"></script>
+  <script src="/static/js/main.js?v=20261109-channel1"></script>
 </body>
 </html>

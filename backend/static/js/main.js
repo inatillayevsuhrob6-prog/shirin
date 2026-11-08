@@ -310,7 +310,7 @@ document.getElementById('checkoutForm')?.addEventListener('submit', async event 
           5614 9857 4747 8987 <span>Nusxa oliş</span>
         </button>
         <p>Tölovdan söng chekni <a href="${escapeHtml(data.telegram_url || 'https://t.me/ShirinDessert_bot')}" target="_blank" rel="noopener">Telegram botimizga yuboring ↗</a>.</p>
-        <p><a href="https://t.me/shirinlik_00manshu" target="_blank" rel="noopener">📢 ŞİRİN Telegram kanali ↗</a></p>
+        <p><a href="https://t.me/shirinlik_00" target="_blank" rel="noopener">📢 ŞİRİN Telegram kanali ↗</a></p>
       </div>` : '';
     result.innerHTML = `
       <section class="order-receipt">

@@ -475,7 +475,7 @@ async def orders(message:Message):
 @dp.message(F.text=='❓ Yordam')
 @dp.message(F.text=='📞 Aloqa')
 async def help_message(message:Message):
-    await message.answer('☎ ŞİRİN aloqa\n\n📞 +998 99 333 6815\n✈ @ShirinDessert_bot\n📍 Toşkent, Özbekiston',reply_markup=main_menu())
+    await message.answer('☎ ŞİRİN aloqa\n\n📞 +998 99 333 6815\n✈ @ShirinDessert_bot\n📢 Telegram kanal: https://t.me/shirinlik_00\n📍 Qarşi, Özbekiston',reply_markup=main_menu())
 
 
 @dp.message(F.text=='📍 Manzil yuboriş')
