@@ -130,29 +130,38 @@ def notify_admins_order(order):
     keyboard={'inline_keyboard':keyboard_rows}
     admin_sent=False
     for chat_id in recipients:
+        result=None
         try:
+            first_item=(order.items or [{}])[0]
+            product=Product.objects.filter(pk=int(first_item.get('id',0))).first()
+            if product and not product.image_upload and product.image.strip():
+                photo_payload=json.dumps({'chat_id':chat_id,'photo':product.image.strip(),'caption':text,'reply_markup':keyboard,'disable_web_page_preview':True}).encode()
+                photo_req=urlrequest.Request(f'https://api.telegram.org/bot{token}/sendPhoto',data=photo_payload,headers={'Content-Type':'application/json'},method='POST')
+                result=json.loads(urlrequest.urlopen(photo_req,timeout=10).read())
+            elif product and product.image_upload:
+                image_path=Path(product.image_upload.path)
+                if image_path.is_file():
+                    boundary='----shirin-order-photo'
+                    body=bytearray()
+                    for key,value in [('chat_id',chat_id),('caption',text),('reply_markup',json.dumps(keyboard))]:
+                        body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode())
+                    mime='image/png' if image_path.suffix.lower()=='.png' else 'image/jpeg'
+                    body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="{image_path.name}"\r\nContent-Type: {mime}\r\n\r\n'.encode())
+                    body.extend(image_path.read_bytes()+f'\r\n--{boundary}--\r\n'.encode())
+                    photo_req=urlrequest.Request(f'https://api.telegram.org/bot{token}/sendPhoto',data=bytes(body),headers={'Content-Type':f'multipart/form-data; boundary={boundary}'},method='POST')
+                    result=json.loads(urlrequest.urlopen(photo_req,timeout=10).read())
+        except Exception:
+            result=None
+        if not result or not result.get('ok'):
             payload=json.dumps({'chat_id':chat_id,'text':text,'reply_markup':keyboard,'disable_web_page_preview':True}).encode()
             req=urlrequest.Request(f'https://api.telegram.org/bot{token}/sendMessage',data=payload,headers={'Content-Type':'application/json'},method='POST')
-            result=json.loads(urlrequest.urlopen(req,timeout=10).read())
-            if result.get('ok'):
-                if chat_id=='5944526629':
-                    admin_sent=True
-                if order.payment=='card':
-                    image_path=Path(__file__).resolve().parent.parent/'static'/'img'/'payment-card.png'
-                    if image_path.is_file():
-                        boundary='----shirin-payment-card'
-                        body=bytearray()
-                        caption=new_uzbek_alphabet(f'💳 Karta orqali to‘lov: {int(order.total):,} söm'.replace(',', ' '))
-                        for key,value in [('chat_id',chat_id),('caption',caption)]:
-                            body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode())
-                        body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="payment-card.png"\r\nContent-Type: image/png\r\n\r\n'.encode())
-                        body.extend(image_path.read_bytes()+f'\r\n--{boundary}--\r\n'.encode())
-                        photo_req=urlrequest.Request(f'https://api.telegram.org/bot{token}/sendPhoto',data=bytes(body),headers={'Content-Type':f'multipart/form-data; boundary={boundary}'},method='POST')
-                        urlrequest.urlopen(photo_req,timeout=10).read()
-            else:
-                logger.error('Telegram rejected order %s notification for chat %s',order.id,chat_id)
-        except Exception:
-            logger.exception('Could not send order notification to Telegram chat %s',chat_id)
+            try:
+                result=json.loads(urlrequest.urlopen(req,timeout=10).read())
+            except Exception:
+                logger.exception('Could not send order notification to Telegram chat %s',chat_id)
+                result=None
+        if result and result.get('ok') and chat_id=='5944526629':
+            admin_sent=True
     return admin_sent
 
 def notify_admins_custom_cake(order,image_field):

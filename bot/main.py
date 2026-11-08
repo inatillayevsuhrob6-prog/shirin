@@ -276,13 +276,25 @@ async def finish_checkout(call:CallbackQuery,state:FSMContext):
     await state.clear()
     admin_text=order_details(order,call.from_user.username)
     try:
-        await bot.send_message(ADMIN_ID,new_uzbek_alphabet(admin_text),
-                               reply_markup=admin_order_keyboard(order.id),disable_web_page_preview=True)
-        if order.payment=='card' and CARD_IMAGE.is_file():
-            await bot.send_photo(ADMIN_ID,FSInputFile(CARD_IMAGE),
-                                 caption=new_uzbek_alphabet(f'💳 Karta orqali to‘lov: {int(order.total):,} söm'.replace(',',' ')))
+        first_item=(order.items or [{}])[0]
+        product=await sync_to_async(Product.objects.filter(pk=int(first_item.get('id',0))).first)()
+        sent=False
+        if product:
+            if product.image_upload:
+                image_path=Path(product.image_upload.path)
+                if image_path.is_file():
+                    await bot.send_photo(ADMIN_ID,FSInputFile(image_path),caption=new_uzbek_alphabet(admin_text),reply_markup=admin_order_keyboard(order.id))
+                    sent=True
+            elif product.image:
+                try:
+                    await bot.send_photo(ADMIN_ID,product.image,caption=new_uzbek_alphabet(admin_text),reply_markup=admin_order_keyboard(order.id))
+                    sent=True
+                except Exception:
+                    sent=False
+        if not sent:
+            await bot.send_message(ADMIN_ID,new_uzbek_alphabet(admin_text),reply_markup=admin_order_keyboard(order.id),disable_web_page_preview=True)
     except Exception:
-        pass
+        await bot.send_message(ADMIN_ID,new_uzbek_alphabet(admin_text),reply_markup=admin_order_keyboard(order.id),disable_web_page_preview=True)
     receipt=(f'✅ BUYURTMANGIZ QABUL QILINDI\n\n'
              f'📋 Buyurtma tafsiloti:\n'+ '\n'.join(
                  f"• {new_uzbek_alphabet(item['name'])} — {item['qty']} dona × {int(item['price']):,} söm = {int(item['price']*item['qty']):,} söm".replace(',',' ')
