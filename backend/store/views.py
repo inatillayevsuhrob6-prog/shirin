@@ -70,7 +70,7 @@ def create_order(request):
     if created:
         token=signing.dumps({'order_id':order.id,'dedup_key':dedup_key},salt='shirin.deep-link',compress=True)
         notified=notify_admins_order(order)
-        return JsonResponse({'id':order.id,'dedup_key':order.dedup_key,'status':order.status,'items':order.items,'total':str(order.total),'admin_notified':notified,'token':token,'telegram_url':f'https://t.me/ShirinUzBot?start=order_{token}'},status=201)
+        return JsonResponse({'id':order.id,'dedup_key':order.dedup_key,'status':order.status,'items':order.items,'total':str(order.total),'admin_notified':notified,'token':token,'telegram_url':f'https://t.me/ShirinDessert_bot?start=order_{token}'},status=201)
     return JsonResponse({'id':order.id,'dedup_key':order.dedup_key,'status':order.status,'items':order.items,'total':str(order.total),'duplicate':True},status=200)
 
 @require_http_methods(['GET'])

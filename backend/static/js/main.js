@@ -306,10 +306,11 @@ document.getElementById('checkoutForm')?.addEventListener('submit', async event 
         <img src="/static/img/payment-card.png" alt="I. Suhrob kartasi">
         <p>Karta egasi: <strong>I. Suhrob</strong></p>
         <p>Ötkazma summasi: <strong>${money(data.total || total)}</strong></p>
-        <button class="copy-card" type="button" data-card="5614956265656968">
-          5614 9562 6565 6968 <span>Nusxa oliş</span>
+        <button class="copy-card" type="button" data-card="5614985747478987">
+          5614 9857 4747 8987 <span>Nusxa oliş</span>
         </button>
-        <p>Tölovdan söng chekni <a href="https://t.me/ShirinUzBot" target="_blank" rel="noopener">Telegram botimizga yuboring ↗</a>.</p>
+        <p>Tölovdan söng chekni <a href="${escapeHtml(data.telegram_url || 'https://t.me/ShirinDessert_bot')}" target="_blank" rel="noopener">Telegram botimizga yuboring ↗</a>.</p>
+        <p><a href="https://t.me/shirinlik_00manshu" target="_blank" rel="noopener">📢 ŞİRİN Telegram kanali ↗</a></p>
       </div>` : '';
     result.innerHTML = `
       <section class="order-receipt">

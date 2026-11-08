@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#2a1712">
   <title>{% block title %}ŞİRİN — Har bir tamda baxt bor{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/main.css?v=20261108-telegram5">
+  <link rel="stylesheet" href="/static/css/main.css?v=20261109-receipt1">
 </head>
 <body>
   {% csrf_token %}
@@ -23,7 +23,7 @@
   <main>{% block content %}{% endblock %}</main>
   <footer>
     <div><a class="brand footer-brand" href="/"><span>Ş</span><div>ŞİRİN<small>Har bir tamda baxt bor!</small></div></a></div>
-    <div><p>+998 99 333 6815</p><p>Qarşi, Özbekiston</p><a href="https://t.me/ShirinUzBot">Telegram @ShirinUzBot</a></div>
+    <div><p>+998 99 333 6815</p><p>Qarşi, Özbekiston</p><a href="https://t.me/ShirinDessert_bot">Telegram @ShirinDessert_bot</a><a href="https://t.me/shirinlik_00manshu">Telegram kanal: @shirinlik_00manshu</a></div>
   </footer>
   <aside class="cart-drawer" id="cartDrawer">
     <header><h2>🛒 Savat</h2><button id="cartClose" aria-label="Savatni yopiş">×</button></header>
@@ -44,7 +44,7 @@
       <input name="delivery_time" placeholder="Yetkaziş vaqti">
       <textarea name="note" placeholder="Qöşimça izoh"></textarea>
       <div class="payment-options"><label><input type="radio" name="payment" value="cash" checked> Naqd</label><label><input type="radio" name="payment" value="card"> Karta</label></div>
-      <div class="card-payment" id="cardPayment"><p>Karta orqali tölov</p><img src="/static/img/payment-card.png" alt="I. Suhrob kartasi"><button type="button" class="copy-card" id="copyCard" data-card="5614956265656968"><strong>5614 9562 6565 6968</strong><span>Nusxa oliş</span></button></div>
+      <div class="card-payment" id="cardPayment"><p>Karta orqali tölov</p><img src="/static/img/payment-card.png" alt="I. Suhrob kartasi"><button type="button" class="copy-card" id="copyCard" data-card="5614985747478987"><strong>5614 9857 4747 8987</strong><span>Nusxa oliş</span></button></div>
       <button class="btn btn-gold" type="submit">Tasdiqlaş</button>
     </form>
     <div id="checkoutResult"></div>
@@ -52,6 +52,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   {{ cart_products|json_script:"cart-products-data" }}
-  <script src="/static/js/main.js?v=20261108-orderstatus1"></script>
+  <script src="/static/js/main.js?v=20261109-receipt1"></script>
 </body>
 </html>

@@ -24,7 +24,7 @@ from store.models import Category, Product, Customer, Order
 from store.text import new_uzbek_alphabet
 
 ADMIN_ID=5944526629
-CARD_NUMBER='5614956265656968'
+CARD_NUMBER='5614985747478987'
 CARD_OWNER='I. Suhrob'
 CARD_IMAGE=BASE_DIR/'backend'/'static'/'img'/'payment-card.png'
 CARD_RECEIPT_IMAGE=BASE_DIR/'backend'/'static'/'img'/'payment-receipt.png'
@@ -90,6 +90,26 @@ def order_details(order, username=None):
 @dp.message(CommandStart())
 async def start(message:Message,state:FSMContext):
     await state.clear()
+    payload=message.text.split(maxsplit=1)[1] if message.text and len(message.text.split(maxsplit=1))>1 else ''
+    if payload.startswith('order_'):
+        try:
+            claim=signing.loads(payload[6:],salt='shirin.deep-link',max_age=7*24*60*60)
+            order=await sync_to_async(Order.objects.select_related('customer').get)(id=claim['order_id'],dedup_key=claim['dedup_key'])
+            if order.telegram_id is None:
+                order.telegram_id=message.from_user.id
+                await sync_to_async(order.save)(update_fields=['telegram_id'])
+            elif order.telegram_id!=message.from_user.id:
+                await message.answer('Bu buyurtma boshqa Telegram hisobiga bog‘langan.');return
+            await state.set_state(Checkout.receipt)
+            await state.update_data(receipt_order_id=order.id)
+            await message.answer(
+                '🧾 <b>To‘lov chekini yuboring</b>\n\n'
+                'Chek rasmini shu suhbatga yuboring. Rasm buyurtma bilan birga adminlar paneliga jonli yuboriladi.',
+                reply_markup=ReplyKeyboardMarkup(keyboard=[],resize_keyboard=True),parse_mode='HTML')
+            return
+        except (signing.BadSignature,KeyError,TypeError,ValueError,Order.DoesNotExist):
+            await message.answer('Buyurtma havolasi noto‘g‘ri yoki muddati o‘tgan.')
+            return
     await message.answer(
         '🎂 <b>ŞİRİN ga xuş keldiŋiz!</b>\n'
         'Har bir ta\'mda — baxt bor!\n\n'
@@ -455,7 +475,7 @@ async def orders(message:Message):
 @dp.message(F.text=='❓ Yordam')
 @dp.message(F.text=='📞 Aloqa')
 async def help_message(message:Message):
-    await message.answer('☎ ŞİRİN aloqa\n\n📞 +998 99 333 6815\n✈ @ShirinUzBot\n📍 Toşkent, Özbekiston',reply_markup=main_menu())
+    await message.answer('☎ ŞİRİN aloqa\n\n📞 +998 99 333 6815\n✈ @ShirinDessert_bot\n📍 Toşkent, Özbekiston',reply_markup=main_menu())
 
 
 @dp.message(F.text=='📍 Manzil yuboriş')
