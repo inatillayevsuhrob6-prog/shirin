@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt && cd backend && python manage.py collectstatic --noinput && python manage.py migrate && python manage.py seed
-    startCommand: cd backend && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: python bot/main.py & gunicorn config.wsgi:application --chdir backend --bind 0.0.0.0:$PORT
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
@@ -20,20 +20,3 @@ services:
       - key: ADMIN_TELEGRAM_IDS
         value: 5944526629
 
-  - type: worker
-    name: shirin-bot
-    runtime: python
-    plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot/main.py
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.0
-      - key: DJANGO_SETTINGS_MODULE
-        value: config.settings
-      - key: PYTHONPATH
-        value: backend
-      - key: BOT_TOKEN
-        sync: false
-      - key: ADMIN_TELEGRAM_IDS
-        value: 5944526629
