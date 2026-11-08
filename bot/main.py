@@ -67,7 +67,7 @@ def order_details(order, username=None):
         name=new_uzbek_alphabet(item.get('name','Mahsulot'))
         quantity=int(item.get('qty',1))
         unit=int(float(item.get('price',0)))
-        lines.append(f'• {name} — {quantity} dona × {unit:,} söm = {unit*quantity:,} söm'.replace(',',' '))
+        lines.append(f'{name} × {quantity} — {unit*quantity:,} söm'.replace(',',' '))
     address=new_uzbek_alphabet(order.address)
     map_link=order.location or (order.address if str(order.address).startswith('http') else f'https://maps.google.com/?q={quote_plus(order.address)}')
     person=new_uzbek_alphabet('Mijoz')
@@ -76,10 +76,10 @@ def order_details(order, username=None):
     payment=f'💳 Karta — {int(order.total):,} so‘m'.replace(',',' ') if order.payment=='card' else '💵 Naqd'
     buyer=f'↗ (@{username}) 🇺🇿' if username else person
     text=(f'🔔 YANGI BUYURTMA!\n\n'
-          f'👤 {buyer}\n🆔 {order.telegram_id or "—"}\n\n'
+          f'{buyer}\n🆔 {order.telegram_id or "—"}\n\n'
           f'🛒 Buyurtma:\n'+'\n'.join(lines)+
           f'\n\n💰 Jami: {int(order.total):,} so‘m'.replace(',',' ')+
-          f'\n📞 Telefon: {order.phone}\n📍 Manzil: {address}\n🗺 Xarita: {map_link}\n💳 To‘lov: {payment}')
+          f'\n📞 Telefon: {order.phone}\n📍 Manzil: {address}\n🗺 Xarita: {map_link}\n{payment}')
     if order.delivery_time:
         text+=f'\n🕒 Yetkazish: {new_uzbek_alphabet(order.delivery_time)}'
     if order.note:
@@ -103,18 +103,18 @@ async def start(message:Message,state:FSMContext):
             await state.set_state(Checkout.receipt)
             await state.update_data(receipt_order_id=order.id)
             await message.answer(
-                '🧾 <b>To‘lov chekini yuboring</b>\n\n'
+                '🧾 To‘lov chekini yuboring\n\n'
                 'Chek rasmini shu suhbatga yuboring. Rasm buyurtma bilan birga adminlar paneliga jonli yuboriladi.',
-                reply_markup=ReplyKeyboardMarkup(keyboard=[],resize_keyboard=True),parse_mode='HTML')
+                reply_markup=ReplyKeyboardMarkup(keyboard=[],resize_keyboard=True))
             return
         except (signing.BadSignature,KeyError,TypeError,ValueError,Order.DoesNotExist):
             await message.answer('Buyurtma havolasi noto‘g‘ri yoki muddati o‘tgan.')
             return
     await message.answer(
-        '🎂 <b>ŞİRİN ga xuş keldiŋiz!</b>\n'
+        '🎂 ŞİRİN ga xuş keldiŋiz!\n'
         'Har bir ta\'mda — baxt bor!\n\n'
         'Premium şirinliklardan buyurtma beriş, savat va buyurtmalarni kuzatiş mumkin.',
-        reply_markup=main_menu(),parse_mode='HTML')
+        reply_markup=main_menu())
 
 
 @dp.message(Command('catalog'))
@@ -171,7 +171,7 @@ async def cart_text(uid):
         return 'Savat hozir boʻş.',[]
     lines=[f"• {x['name']} — {x['qty']} dona × {int(x['price']):,} söm".replace(',',' ') for x in items]
     total=sum(x['price']*x['qty'] for x in items)
-    return '🛒 <b>Savat</b>\n\n'+'\n'.join(lines)+f'\n\n<b>Jami: {int(total):,} söm</b>'.replace(',',' '),items,total
+    return '🛒 Savat\n\n'+'\n'.join(lines)+f'\n\nJami: {int(total):,} söm'.replace(',',' '),items,total
 
 
 @dp.message(F.text=='🛒 Savat')
@@ -183,9 +183,9 @@ async def show_cart(event:Message|CallbackQuery):
         [InlineKeyboardButton(text='🛍 Buyurtma beriş',callback_data='checkout')],
         [InlineKeyboardButton(text='🗑 Savatni boʻşatiş',callback_data='clear_cart')]])
     if isinstance(event,CallbackQuery):
-        await event.message.edit_text(text,reply_markup=kb,parse_mode='HTML')
+        await event.message.edit_text(text,reply_markup=kb)
     else:
-        await event.answer(text,reply_markup=kb,parse_mode='HTML')
+        await event.answer(text,reply_markup=kb)
 
 
 @dp.callback_query(F.data=='clear_cart')
@@ -467,8 +467,8 @@ async def orders(message:Message):
     rows=await sync_to_async(list)(Order.objects.filter(telegram_id=message.from_user.id).order_by('-created_at')[:10])
     if not rows:
         await message.answer('Buyurtmalar hali yoʻq.',reply_markup=main_menu());return
-    text='📦 <b>Buyurtmalarim</b>\n\n'+ '\n'.join(f'№{o.id} — {o.get_status_display()} — {int(o.total):,} söm'.replace(',',' ') for o in rows)
-    await message.answer(text,parse_mode='HTML',reply_markup=main_menu())
+    text='📦 Buyurtmalarim\n\n'+ '\n'.join(f'№{o.id} — {o.get_status_display()} — {int(o.total):,} söm'.replace(',',' ') for o in rows)
+    await message.answer(text,reply_markup=main_menu())
 
 
 @dp.message(Command('help'))

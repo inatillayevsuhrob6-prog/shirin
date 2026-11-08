@@ -92,7 +92,7 @@ def notify_admins_order(order):
     for item in order.items or []:
         try:
             qty=int(item.get('qty',1)); price=Decimal(str(item.get('price',0))); name=new_uzbek_alphabet(item.get('name','Mahsulot'))
-            item_lines.append(f"• {name} — {qty} dona × {int(price):,} söm = {int(price*qty):,} söm".replace(',', ' '))
+            item_lines.append(f"{name} × {qty} — {int(price*qty):,} söm".replace(',', ' '))
         except Exception:
             pass
     customer_name=new_uzbek_alphabet(order.customer.name if order.customer else 'Ko‘rsatilmagan')
