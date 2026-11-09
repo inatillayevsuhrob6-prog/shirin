@@ -1,4 +1,5 @@
 const loader = document.getElementById('loader');
+const BASE_PATH = document.documentElement.dataset.basePath || '';
 document.querySelectorAll('.nav-links a').forEach(link => {
   const target = `${link.getAttribute('href') || ''} ${link.textContent || ''}`.toLowerCase();
   if (target.includes('studio') || target.includes('tracking') || target.includes('kuzatuv') || target.includes('/admin/') || target.includes('tort atelyeri')) {
@@ -127,7 +128,7 @@ function restorePricesFromEmbeddedCatalog() {
 async function restorePricesFromCatalog() {
   if (!cart.length) return;
   try {
-    const response = await fetch('/api/products/');
+    const response = await fetch(`${BASE_PATH}/api/products/`);
     if (!response.ok) return;
     const products = await response.json();
     cart.forEach(item => {
@@ -289,7 +290,7 @@ document.getElementById('checkoutForm')?.addEventListener('submit', async event 
   submit.disabled = true;
   result.textContent = 'Buyurtmangiz yuborilmoqda…';
   try {
-    const response = await fetch('/api/orders/', {
+    const response = await fetch(`${BASE_PATH}/api/orders/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
       body: JSON.stringify(payload)
@@ -303,7 +304,7 @@ document.getElementById('checkoutForm')?.addEventListener('submit', async event 
     const cardInstructions = payload.payment === 'card' ? `
       <div class="receipt-card-payment">
         <p>💳 Karta orqali tölov</p>
-        <img src="/static/img/payment-card.png" alt="I. Suhrob kartasi">
+        <img src="${BASE_PATH}/static/img/payment-card.png" alt="I. Suhrob kartasi">
         <p>Karta egasi: <strong>I. Suhrob</strong></p>
         <p>Ötkazma summasi: <strong>${money(data.total || total)}</strong></p>
         <button class="copy-card" type="button" data-card="5614985747478987">
@@ -323,7 +324,7 @@ document.getElementById('checkoutForm')?.addEventListener('submit', async event 
         ${payload.location ? `<a class="receipt-map" href="${escapeHtml(payload.location)}" target="_blank" rel="noopener">📍 Xarita manzilini köriş ↗</a>` : ''}
         ${cardInstructions}
         <p class="receipt-notice">${data.admin_notified ? 'ŞİRİN administratori buyurtmangizdan xabardor qilindi.' : 'Buyurtmangiz qabul qilindi. Tez orada siz bilan boğlanamiz.'}</p>
-        <a class="tracking-link" href="/tracking/?key=${encodeURIComponent(data.dedup_key)}">Buyurtma holatini kuzatiş →</a>
+        <a class="tracking-link" href="${BASE_PATH}/tracking/?key=${encodeURIComponent(data.dedup_key)}">Buyurtma holatini kuzatiş →</a>
       </section>`;
     cart = [];
     saveCart();
@@ -351,7 +352,7 @@ let activeTrackingKey = '';
 const refreshOrderTracking = async key => {
   const statusText = document.getElementById('trackingStatus');
   try {
-    const response = await fetch(`/api/orders/${encodeURIComponent(key)}/`);
+    const response = await fetch(`${BASE_PATH}/api/orders/${encodeURIComponent(key)}/`);
     const data = await response.json();
     if (!response.ok) {
       statusText.textContent = newAlphabet(data.error || 'Buyurtma topilmadi.');

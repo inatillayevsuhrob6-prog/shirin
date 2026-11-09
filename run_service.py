@@ -33,12 +33,13 @@ def request_shutdown(_signum, _frame):
 def main():
     signal.signal(signal.SIGTERM, request_shutdown)
     signal.signal(signal.SIGINT, request_shutdown)
+    bind_address = os.getenv('IP', '0.0.0.0')
     port = os.getenv('PORT', '8000')
     web = subprocess.Popen(
         [
             sys.executable, '-m', 'gunicorn', 'config.wsgi:application',
             '--chdir', str(ROOT / 'backend'),
-            '--bind', f'0.0.0.0:{port}',
+            '--bind', f'{bind_address}:{port}',
         ],
         cwd=ROOT,
     )

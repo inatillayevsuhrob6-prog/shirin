@@ -13,6 +13,7 @@ MIDDLEWARE = ['corsheaders.middleware.CorsMiddleware','django.middleware.securit
 ROOT_URLCONF = 'config.urls'
 TEMPLATES = [{'BACKEND':'django.template.backends.django.DjangoTemplates','DIRS':[BASE_DIR/'templates'],'APP_DIRS':True,'OPTIONS':{'context_processors':['django.template.context_processors.debug','django.template.context_processors.request','django.contrib.auth.context_processors.auth','django.contrib.messages.context_processors.messages']}}]
 WSGI_APPLICATION = 'config.wsgi.application'
+FORCE_SCRIPT_NAME = os.getenv('FORCE_SCRIPT_NAME') or None
 DATABASE_URL = os.getenv('DATABASE_URL','')
 if DATABASE_URL.startswith(('postgresql://','postgres://')):
     database_url = DATABASE_URL.replace('postgres://','postgresql://',1)
@@ -20,11 +21,11 @@ if DATABASE_URL.startswith(('postgresql://','postgres://')):
     DATABASES={'default':{'ENGINE':'django.db.backends.postgresql','NAME':parsed.path.lstrip('/'),'USER':parsed.username,'PASSWORD':parsed.password,'HOST':parsed.hostname,'PORT':parsed.port or 5432,'CONN_MAX_AGE':600}}
 else:
     DATABASES={'default':{'ENGINE':'django.db.backends.sqlite3','NAME':BASE_DIR/'db.sqlite3'}}
-STATIC_URL='/static/'
+STATIC_URL=f'{FORCE_SCRIPT_NAME}/static/' if FORCE_SCRIPT_NAME else '/static/'
 STATIC_ROOT=BASE_DIR/'staticfiles'
 STATICFILES_DIRS=[BASE_DIR/'static']
 STORAGES={'staticfiles':{'BACKEND':'whitenoise.storage.CompressedManifestStaticFilesStorage'}}
-MEDIA_URL='/media/'
+MEDIA_URL=f'{FORCE_SCRIPT_NAME}/media/' if FORCE_SCRIPT_NAME else '/media/'
 MEDIA_ROOT=BASE_DIR/'media'
 DEFAULT_AUTO_FIELD='django.db.models.BigAutoField'
 LANGUAGE_CODE='uz'
