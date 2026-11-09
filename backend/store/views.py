@@ -1,5 +1,6 @@
 import json
 import logging
+import mimetypes
 import os
 import re
 from pathlib import Path
@@ -84,17 +85,23 @@ def order_status(request,dedup_key):
 def notify_admins_order(order):
     token=os.getenv('BOT_TOKEN','')
     admin_ids=list(dict.fromkeys(['5944526629',*[value.strip() for value in os.getenv('ADMIN_TELEGRAM_IDS','').split(',') if value.strip()]]))
-    recipients=list(dict.fromkeys(admin_ids))
+    recipients=admin_ids
     if not token:
         logger.error('Order notification skipped: BOT_TOKEN is not configured')
         return False
     item_lines=[]
+    product_ids=[]
     for item in order.items or []:
         try:
-            qty=int(item.get('qty',1)); price=Decimal(str(item.get('price',0))); name=new_uzbek_alphabet(item.get('name','Mahsulot'))
-            item_lines.append(f"{name} × {qty} — {int(price*qty):,} söm".replace(',', ' '))
-        except Exception:
-            pass
+            qty=int(item.get('qty',1))
+            price=Decimal(str(item.get('price',0)))
+            name=new_uzbek_alphabet(item.get('name','Mahsulot'))
+            item_lines.append(f"• {name} — {qty} dona × {int(price):,} so‘m = {int(price*qty):,} so‘m".replace(',', ' '))
+            product_id=int(item.get('id',0))
+            if product_id:
+                product_ids.append(product_id)
+        except (TypeError, ValueError, ArithmeticError):
+            logger.warning('Invalid item data in order %s',order.id)
     customer_name=new_uzbek_alphabet(order.customer.name if order.customer else 'Ko‘rsatilmagan')
     address=new_uzbek_alphabet(order.address)
     map_link=order.location or f"https://maps.google.com/?q={quote_plus(order.address)}"
@@ -102,9 +109,9 @@ def notify_admins_order(order):
     delivery=new_uzbek_alphabet(order.delivery_time or 'Kelishiladi')
     telegram_id=order.telegram_id or (order.customer.telegram_id if order.customer else None)
     payment=f"💳 Karta — {int(order.total):,} so‘m" if order.payment=='card' else '💵 Naqd'
-    text=(f"🔔 YANGI SAYT BUYURTMASI №{order.id}\n\n"
-          f"👤 Mijoz: {customer_name}\n"
-          +(f"🆔 Telegram: {telegram_id}\n" if telegram_id else "")+
+    text=(f"🔔 YANGI BUYURTMA!\n\n"
+          f"👤 {customer_name}\n"
+          +(f"🆔 {telegram_id}\n" if telegram_id else "")+
           f"📞 Telefon: {order.phone}\n"
           f"\n🛒 Buyurtma:\n"+'\n'.join(item_lines)+
           f"\n\n💰 Jami: {int(order.total):,} so‘m\n".replace(',', ' ')+
@@ -130,71 +137,90 @@ def notify_admins_order(order):
     keyboard={'inline_keyboard':keyboard_rows}
     admin_sent=False
     for chat_id in recipients:
-        result=None
-        try:
-            first_item=(order.items or [{}])[0]
-            product=Product.objects.filter(pk=int(first_item.get('id',0))).first()
-            if product and not product.image_upload and product.image.strip():
-                photo_payload=json.dumps({'chat_id':chat_id,'photo':product.image.strip(),'caption':text,'reply_markup':keyboard,'disable_web_page_preview':True}).encode()
-                photo_req=urlrequest.Request(f'https://api.telegram.org/bot{token}/sendPhoto',data=photo_payload,headers={'Content-Type':'application/json'},method='POST')
-                result=json.loads(urlrequest.urlopen(photo_req,timeout=10).read())
-            elif product and product.image_upload:
-                image_path=Path(product.image_upload.path)
-                if image_path.is_file():
-                    boundary='----shirin-order-photo'
-                    body=bytearray()
-                    for key,value in [('chat_id',chat_id),('caption',text),('reply_markup',json.dumps(keyboard))]:
-                        body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode())
-                    mime='image/png' if image_path.suffix.lower()=='.png' else 'image/jpeg'
-                    body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="{image_path.name}"\r\nContent-Type: {mime}\r\n\r\n'.encode())
-                    body.extend(image_path.read_bytes()+f'\r\n--{boundary}--\r\n'.encode())
-                    photo_req=urlrequest.Request(f'https://api.telegram.org/bot{token}/sendPhoto',data=bytes(body),headers={'Content-Type':f'multipart/form-data; boundary={boundary}'},method='POST')
-                    result=json.loads(urlrequest.urlopen(photo_req,timeout=10).read())
-        except Exception:
-            result=None
-        if not result or not result.get('ok'):
-            payload=json.dumps({'chat_id':chat_id,'text':text,'reply_markup':keyboard,'disable_web_page_preview':True}).encode()
-            req=urlrequest.Request(f'https://api.telegram.org/bot{token}/sendMessage',data=payload,headers={'Content-Type':'application/json'},method='POST')
-            try:
-                result=json.loads(urlrequest.urlopen(req,timeout=10).read())
-            except Exception:
-                logger.exception('Could not send order notification to Telegram chat %s',chat_id)
-                result=None
-        if result and result.get('ok') and chat_id=='5944526629':
+        if not telegram_request(token,'sendMessage',{'chat_id':chat_id,'text':text,'reply_markup':keyboard,'disable_web_page_preview':True}):
+            continue
+        if chat_id=='5944526629':
             admin_sent=True
+        for product in Product.objects.filter(pk__in=product_ids):
+            photo=Path(product.image_upload.path) if product.image_upload else product.image.strip()
+            if not photo:
+                continue
+            _send_telegram_photo(
+                token,chat_id,photo,
+                new_uzbek_alphabet(f"🍰 {product.name} — {int(product.price):,} so‘m".replace(',', ' ')),
+                order.id,
+            )
+        if order.payment=='card':
+            card_image=Path(__file__).resolve().parent.parent/'static'/'img'/'payment-card.png'
+            if card_image.is_file():
+                _send_telegram_photo(token,chat_id,card_image,
+                    new_uzbek_alphabet(f'💳 Karta orqali to‘lov: {int(order.total):,} so‘m'.replace(',', ' ')),order.id)
     return admin_sent
+
+def telegram_request(token,method,payload,upload=None):
+    endpoint=f'https://api.telegram.org/bot{token}/{method}'
+    try:
+        if upload:
+            field_name,filename,content_type,content=upload
+            boundary='----shirin-'+os.urandom(12).hex()
+            body=bytearray()
+            for key,value in payload.items():
+                encoded=json.dumps(value,ensure_ascii=False) if isinstance(value,(dict,list)) else str(value)
+                body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{encoded}\r\n'.encode())
+            body.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\nContent-Type: {content_type}\r\n\r\n'.encode())
+            body.extend(content+f'\r\n--{boundary}--\r\n'.encode())
+            req=urlrequest.Request(endpoint,data=bytes(body),headers={'Content-Type':f'multipart/form-data; boundary={boundary}'},method='POST')
+        else:
+            req=urlrequest.Request(endpoint,data=json.dumps(payload,ensure_ascii=False).encode(),headers={'Content-Type':'application/json'},method='POST')
+        result=json.loads(urlrequest.urlopen(req,timeout=20).read())
+    except Exception as exc:
+        logger.error('Telegram %s request failed: %s',method,type(exc).__name__)
+        return False
+    if not result.get('ok'):
+        logger.error('Telegram %s rejected request: %s',method,result.get('description','unknown error'))
+        return False
+    return True
+
+def _send_telegram_photo(token,chat_id,photo,caption,order_id):
+    payload={'chat_id':chat_id,'caption':caption}
+    try:
+        if isinstance(photo,Path):
+            if not photo.is_file():
+                logger.warning('Image for order %s is missing: %s',order_id,photo.name)
+                return False
+            mime=mimetypes.guess_type(photo.name)[0] or 'application/octet-stream'
+            return telegram_request(token,'sendPhoto',payload,('photo',photo.name,mime,photo.read_bytes()))
+        if photo.startswith(('https://','http://')):
+            return telegram_request(token,'sendPhoto',{**payload,'photo':photo})
+        logger.warning('Unsupported image reference for order %s',order_id)
+    except OSError as exc:
+        logger.error('Could not read image for order %s: %s',order_id,type(exc).__name__)
+    return False
 
 def notify_admins_custom_cake(order,image_field):
     token=os.getenv('BOT_TOKEN','')
-    admin_ids=['5944526629']
-    if not token or not admin_ids:
-        return
-    text=(f"🎂 Yangi maxsus tort buyurtmasi\n"
+    admin_ids=list(dict.fromkeys(['5944526629',*[value.strip() for value in os.getenv('ADMIN_TELEGRAM_IDS','').split(',') if value.strip()]]))
+    if not token:
+        logger.error('Custom cake notification skipped: BOT_TOKEN is not configured')
+        return False
+    text=new_uzbek_alphabet(f"🎂 YANGI MAXSUS TORT BUYURTMASI\n"
           f"👤 Ism: {order.name}\n📞 Telefon: {order.phone}\n📍 Manzil: {getattr(order, 'address', '') or 'Ko‘rsatilmagan'}\n"
           f"Shakl: {order.shape}\nQavatlar: {order.layers}\nKrem: {order.cream}\n"
           f"Rang: {order.color}\nBezaklar: {order.decorations}\n"
           f"Tort ustidagi yozuv: {order.inscription or 'Yo‘q'}\n"
           f"Izoh: {order.note or 'Yo‘q'}")
+    sent=False
     try:
         image_field.seek(0)
         content=image_field.read()
         filename=getattr(image_field,'name','cake.jpg').rsplit('/',1)[-1]
-        boundary='----shirinboundary'
-        body=bytearray()
-        for key,value in [('chat_id',''),('caption',text)]:
-            if key=='chat_id': continue
-            body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{key}\"\r\n\r\n{value}\r\n".encode())
         mime=image_field.content_type if hasattr(image_field,'content_type') else 'image/jpeg'
         for chat_id in admin_ids:
-            body=bytearray()
-            for key,value in [('chat_id',chat_id),('caption',text)]:
-                body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{key}\"\r\n\r\n{value}\r\n".encode())
-            body.extend(f"--{boundary}\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"{filename}\"\r\nContent-Type: {mime}\r\n\r\n".encode()+content+b"\r\n")
-            body.extend(f"--{boundary}--\r\n".encode())
-            req=urlrequest.Request(f'https://api.telegram.org/bot{token}/sendPhoto',data=bytes(body),headers={'Content-Type':f'multipart/form-data; boundary={boundary}'},method='POST')
-            urlrequest.urlopen(req,timeout=10).read()
-    except Exception:
-        pass
+            sent=telegram_request(token,'sendPhoto',{'chat_id':chat_id,'caption':text},
+                                  ('photo',filename,mime,content)) or sent
+    except Exception as exc:
+        logger.error('Could not forward custom cake image: %s',type(exc).__name__)
+    return sent
 
 @csrf_protect
 @require_http_methods(['POST'])
@@ -209,8 +235,8 @@ def custom_cake(request):
         color=request.POST['color'][:20],cream=request.POST['cream'][:40],layers=int(request.POST['layers']),
         decorations=request.POST.get('decorations','')[:300],inscription=request.POST.get('inscription','')[:200],
         note=request.POST.get('note',''),image=request.FILES['image'])
-    notify_admins_custom_cake(order,request.FILES['image'])
-    return JsonResponse({'id':order.id,'status':'received','message':'Buyurtma qabul qilindi'},status=201)
+    notified=notify_admins_custom_cake(order,request.FILES['image'])
+    return JsonResponse({'id':order.id,'status':'received','admin_notified':notified,'message':'Buyurtma qabul qilindi'},status=201)
 
 @require_http_methods(['POST'])
 def deep_link(request,token):

@@ -1,4 +1,4 @@
-import os, sys, uuid, asyncio, re
+import os, sys, uuid, asyncio, re, logging
 from pathlib import Path
 from urllib.parse import quote_plus
 
@@ -24,6 +24,8 @@ from store.models import Category, Product, Customer, Order
 from store.text import new_uzbek_alphabet
 
 ADMIN_ID=5944526629
+logging.basicConfig(level=os.getenv('LOG_LEVEL','INFO'))
+logger=logging.getLogger(__name__)
 CARD_NUMBER='5614985747478987'
 CARD_OWNER='I. Suhrob'
 CARD_IMAGE=BASE_DIR/'backend'/'static'/'img'/'payment-card.png'
@@ -67,7 +69,7 @@ def order_details(order, username=None):
         name=new_uzbek_alphabet(item.get('name','Mahsulot'))
         quantity=int(item.get('qty',1))
         unit=int(float(item.get('price',0)))
-        lines.append(f'{name} × {quantity} — {unit*quantity:,} söm'.replace(',',' '))
+        lines.append(f'• {name} — {quantity} dona × {unit:,} so‘m = {unit*quantity:,} so‘m'.replace(',',' '))
     address=new_uzbek_alphabet(order.address)
     map_link=order.location or (order.address if str(order.address).startswith('http') else f'https://maps.google.com/?q={quote_plus(order.address)}')
     person=new_uzbek_alphabet('Mijoz')
@@ -276,25 +278,27 @@ async def finish_checkout(call:CallbackQuery,state:FSMContext):
     await state.clear()
     admin_text=order_details(order,call.from_user.username)
     try:
-        first_item=(order.items or [{}])[0]
-        product=await sync_to_async(Product.objects.filter(pk=int(first_item.get('id',0))).first)()
-        sent=False
-        if product:
-            if product.image_upload:
-                image_path=Path(product.image_upload.path)
-                if image_path.is_file():
-                    await bot.send_photo(ADMIN_ID,FSInputFile(image_path),caption=new_uzbek_alphabet(admin_text),reply_markup=admin_order_keyboard(order.id))
-                    sent=True
-            elif product.image:
-                try:
-                    await bot.send_photo(ADMIN_ID,product.image,caption=new_uzbek_alphabet(admin_text),reply_markup=admin_order_keyboard(order.id))
-                    sent=True
-                except Exception:
-                    sent=False
-        if not sent:
-            await bot.send_message(ADMIN_ID,new_uzbek_alphabet(admin_text),reply_markup=admin_order_keyboard(order.id),disable_web_page_preview=True)
-    except Exception:
-        await bot.send_message(ADMIN_ID,new_uzbek_alphabet(admin_text),reply_markup=admin_order_keyboard(order.id),disable_web_page_preview=True)
+        await bot.send_message(ADMIN_ID,new_uzbek_alphabet(admin_text),
+                               reply_markup=admin_order_keyboard(order.id),disable_web_page_preview=True)
+        product_ids={int(item.get('id',0)) for item in order.items if item.get('id')}
+        products=await sync_to_async(list)(Product.objects.filter(pk__in=product_ids))
+        for product in products:
+            try:
+                caption=new_uzbek_alphabet(f'🍰 {product.name} — {int(product.price):,} so‘m'.replace(',',' '))
+                if product.image_upload:
+                    await bot.send_photo(ADMIN_ID,FSInputFile(product.image_upload.path),caption=caption)
+                elif product.image:
+                    await bot.send_photo(ADMIN_ID,product.image,caption=caption)
+            except Exception as exc:
+                logger.error('Could not send product image for order %s: %s',order.id,type(exc).__name__)
+        if order.payment=='card' and CARD_IMAGE.is_file():
+            try:
+                await bot.send_photo(ADMIN_ID,FSInputFile(CARD_IMAGE),
+                                     caption=new_uzbek_alphabet(f'💳 Karta orqali to‘lov: {int(order.total):,} söm'.replace(',',' ')))
+            except Exception as exc:
+                logger.error('Could not send card image for order %s: %s',order.id,type(exc).__name__)
+    except Exception as exc:
+        logger.error('Could not send order %s to admin: %s',order.id,type(exc).__name__)
     receipt=(f'✅ BUYURTMANGIZ QABUL QILINDI\n\n'
              f'📋 Buyurtma tafsiloti:\n'+ '\n'.join(
                  f"• {new_uzbek_alphabet(item['name'])} — {item['qty']} dona × {int(item['price']):,} söm = {int(item['price']*item['qty']):,} söm".replace(',',' ')
@@ -468,6 +472,29 @@ async def ask_for_payment_receipt(message:Message,state:FSMContext):
         await state.clear()
         return
     await message.answer('Iltimos, to‘lov chekini rasm qilib yuboring. Bekor qilish uchun “bekor” deb yozing.')
+
+
+@dp.message(F.photo | F.document)
+async def forward_user_image_to_admin(message:Message):
+    if message.document and not (message.document.mime_type or '').startswith('image/'):
+        return
+    user=message.from_user
+    display_name=new_uzbek_alphabet(user.full_name or 'Mijoz')
+    if user.username:
+        display_name+=f' (@{user.username})'
+    caption=new_uzbek_alphabet(f'📷 Foydalanuvchi botga rasm yubordi\n👤 {display_name}\n🆔 {user.id}')
+    if message.caption:
+        caption+=f'\n📝 {new_uzbek_alphabet(message.caption[:500])}'
+    try:
+        if message.photo:
+            await bot.send_photo(ADMIN_ID,message.photo[-1].file_id,caption=caption)
+        else:
+            await bot.send_document(ADMIN_ID,message.document.file_id,caption=caption)
+    except Exception as exc:
+        logger.error('Could not forward user image to admin: %s',type(exc).__name__)
+        await message.answer('Rasm adminga yuborilmadi. Iltimos, qayta urinib ko‘ring.')
+        return
+    await message.answer('Rasmingiz adminga yuborildi.')
 
 
 @dp.message(Command('orders'))
