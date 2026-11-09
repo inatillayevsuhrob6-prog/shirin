@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/products/', views.ProductList.as_view()),
     path('api/orders/', views.create_order),
     path('api/orders/<str:dedup_key>/', views.order_status),
+    path('api/bot/orders/<int:order_id>/transition/', views.bot_order_transition),
     path('api/deep-link/<str:token>/', views.deep_link),
     path('api/custom-cake/', views.custom_cake),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

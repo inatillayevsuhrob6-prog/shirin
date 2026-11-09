@@ -35,3 +35,13 @@ Admin: http://localhost/admin/
 API: http://localhost/api/products/
 
 Bot tokeni faqat `.env` ichida saqlanadi. `.env` Gitga qo‘yilmaydi.
+
+## Sayt va botni alohida serverlarda ishlatish
+
+Sayt va bot turli serverlarda yoki turli SQLite bazalarida ishlasa ham, botdagi admin buyurtma tugmalari sayt bazasini yangilashi uchun bot serveridagi `.env` faylida `SITE_URL` ni saytning to‘liq manziliga qo‘ying. Masalan, Alwaysdata sayti `/shirin` ostida bo‘lsa:
+
+```dotenv
+SITE_URL=https://suhrob.alwaysdata.net/shirin
+```
+
+Sayt va bot serverlaridagi `BOT_TOKEN` bir xil bo‘lishi shart. Bot admin tugmasi bosilganda buyurtma botning lokal bazasidan topilmasa, sayt API orqali yangilaydi. `SITE_URL` oxiriga `/` qo‘ymang.

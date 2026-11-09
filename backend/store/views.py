@@ -1,4 +1,5 @@
 import json
+import hmac
 import logging
 import mimetypes
 import os
@@ -11,7 +12,7 @@ from django.core import signing
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
-from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_http_methods
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
@@ -81,6 +82,42 @@ def order_status(request,dedup_key):
     except Order.DoesNotExist:
         return api_error('Buyurtma topilmadi',404)
     return JsonResponse({'id':order.id,'status':order.status,'status_label':order.get_status_display(),'payment':order.payment,'total':str(order.total),'created_at':order.created_at.isoformat()})
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def bot_order_transition(request,order_id):
+    expected_token=os.getenv('BOT_TOKEN','')
+    supplied_token=request.headers.get('X-Telegram-Bot-Token','')
+    if not expected_token or not hmac.compare_digest(supplied_token,expected_token):
+        return api_error('Ruxsat berilmadi',403)
+    try:
+        data=json.loads(request.body)
+        admin_id=str(data.get('admin_id',''))
+    except (json.JSONDecodeError,AttributeError):
+        return api_error('So‘rov noto‘g‘ri')
+    admin_ids={'5944526629',*[value.strip() for value in os.getenv('ADMIN_TELEGRAM_IDS','').split(',') if value.strip()]}
+    if admin_id not in admin_ids:
+        return api_error('Bu amal faqat admin uchun',403)
+    transitions={
+        'admin_confirm':('new','confirmed'), 'ok':('new','confirmed'),
+        'admin_baking':('confirmed','baking'), 'admin_delivery':('baking','delivery'),
+        'admin_done':('delivery','done'), 'admin_cancel':(None,'cancelled'), 'cancel':(None,'cancelled'),
+    }
+    action=data.get('action')
+    if not isinstance(action,str) or action not in transitions:
+        return api_error('Buyurtma amali noto‘g‘ri')
+    expected_status,next_status=transitions[action]
+    try:
+        with transaction.atomic():
+            order=Order.objects.select_for_update().select_related('customer').get(pk=order_id)
+            if expected_status and order.status!=expected_status:
+                return JsonResponse({'error':'Buyurtma holati allaqachon yangilangan','status':order.status},status=409)
+            order.status=next_status
+            order.save(update_fields=['status'])
+    except Order.DoesNotExist:
+        return api_error('Buyurtma topilmadi',404)
+    customer_id=order.telegram_id or (order.customer.telegram_id if order.customer else None)
+    return JsonResponse({'id':order.id,'status':order.status,'status_label':order.get_status_display(),'customer_telegram_id':customer_id})
 
 def notify_admins_order(order):
     token=os.getenv('BOT_TOKEN','')

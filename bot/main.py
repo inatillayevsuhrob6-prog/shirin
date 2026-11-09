@@ -1,6 +1,7 @@
-import os, sys, uuid, asyncio, re, logging
+import os, sys, uuid, asyncio, re, logging, json
 from pathlib import Path
 from urllib.parse import quote_plus
+from urllib import request as urlrequest
 
 from dotenv import load_dotenv
 BASE_DIR=Path(__file__).resolve().parent.parent
@@ -61,6 +62,24 @@ def admin_order_keyboard(order_id,status='new'):
     if status not in ('done','cancelled'):
         rows.append([InlineKeyboardButton(text='❌ Bekor qilish',callback_data=f'admin_cancel_{order_id}')])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def remote_order_transition(order_id,action,admin_id):
+    site_url=os.getenv('SITE_URL','').rstrip('/')
+    token=os.getenv('BOT_TOKEN','')
+    if not site_url or not token:
+        return None
+    endpoint=f'{site_url}/api/bot/orders/{order_id}/transition/'
+    payload=json.dumps({'action':action,'admin_id':admin_id}).encode()
+    req=urlrequest.Request(endpoint,data=payload,headers={
+        'Content-Type':'application/json','X-Telegram-Bot-Token':token,
+    },method='POST')
+    try:
+        with urlrequest.urlopen(req,timeout=12) as response:
+            return json.loads(response.read())
+    except Exception as exc:
+        logger.warning('Remote order transition failed for order %s: %s',order_id,type(exc).__name__)
+        return None
 
 
 def order_details(order, username=None):
@@ -377,16 +396,21 @@ async def admin_order_action(call:CallbackQuery):
         'cancel':(None,'cancelled','❌ Buyurtma bekor qilindi.'),
     }
     expected_status,next_status,status_message=transitions[action]
+    remote_result=None
     try:
         order=await sync_to_async(Order.objects.select_related('customer').get)(pk=order_id)
     except Order.DoesNotExist:
-        await call.answer('Buyurtma topilmadi.',show_alert=True)
-        return
-    if expected_status and order.status!=expected_status:
-        await call.answer('Buyurtma holati allaqachon yangilangan.',show_alert=True)
-        return
-    order.status=next_status
-    await sync_to_async(order.save)(update_fields=['status'])
+        remote_result=await asyncio.to_thread(remote_order_transition,order_id,action,call.from_user.id)
+        if not remote_result:
+            await call.answer('Buyurtma topilmadi. Sayt bazasiga ulanishni tekshiring.',show_alert=True)
+            return
+        next_status=remote_result['status']
+    else:
+        if expected_status and order.status!=expected_status:
+            await call.answer('Buyurtma holati allaqachon yangilangan.',show_alert=True)
+            return
+        order.status=next_status
+        await sync_to_async(order.save)(update_fields=['status'])
     original_text=call.message.text or call.message.caption or ''
     cleaned_text=re.sub(r'</?b>', '', original_text, flags=re.IGNORECASE)
     cleaned_text=re.sub(r'\s*№\s*\d+', '', cleaned_text)
@@ -404,12 +428,13 @@ async def admin_order_action(call:CallbackQuery):
         lines=[status_headings[next_status]]
     cleaned_text='\n'.join(lines)
     try:
-        next_keyboard=admin_order_keyboard(order.id,next_status) if next_status not in ('done','cancelled') else None
+        next_keyboard=admin_order_keyboard(order_id,next_status) if next_status not in ('done','cancelled') else None
         await call.message.edit_text(new_uzbek_alphabet(cleaned_text),reply_markup=next_keyboard,disable_web_page_preview=True)
     except Exception:
         await call.message.edit_reply_markup(reply_markup=None)
         await call.message.answer(status_message)
-    customer_id=order.telegram_id or (order.customer.telegram_id if order.customer else None)
+    customer_id=(remote_result.get('customer_telegram_id') if remote_result else
+                 order.telegram_id or (order.customer.telegram_id if order.customer else None))
     if customer_id:
         customer_messages={
             'confirmed':'👤 Buyurtmangiz adminga tayinlandi!',
