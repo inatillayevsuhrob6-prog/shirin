@@ -35,11 +35,12 @@ def main():
     signal.signal(signal.SIGINT, request_shutdown)
     bind_address = os.getenv('IP', '0.0.0.0')
     port = os.getenv('PORT', '8000')
+    bind = f'[{bind_address}]:{port}' if ':' in bind_address else f'{bind_address}:{port}'
     web = subprocess.Popen(
         [
             sys.executable, '-m', 'gunicorn', 'config.wsgi:application',
             '--chdir', str(ROOT / 'backend'),
-            '--bind', f'{bind_address}:{port}',
+            '--bind', bind,
         ],
         cwd=ROOT,
     )
